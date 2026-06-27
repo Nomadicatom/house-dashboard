@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --accent: #0071e3;
+            --border-radius: 16px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 24px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card p {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        /* Search & Filters Controls */
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 280px;
+            padding: 14px 20px;
+            border-radius: var(--border-radius);
+            border: 1px solid transparent;
+            background: var(--card-bg);
+            box-shadow: var(--shadow);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .filter-btn {
+            padding: 14px 24px;
+            border-radius: var(--border-radius);
+            border: none;
+            background: var(--card-bg);
+            box-shadow: var(--shadow);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active {
+            background: var(--text-primary);
+            color: #fff;
+        }
+
+        /* Property Cards Grid */
+        .property-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .property-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .property-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .property-image-placeholder {
+            height: 200px;
+            background: #e8e8ed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .property-content {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .property-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .property-address {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .property-city {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+
+        .property-specs {
+            display: flex;
+            gap: 16px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            border-top: 1px solid #e8e8ed;
+            border-bottom: 1px solid #e8e8ed;
+            padding: 12px 0;
+            margin-bottom: 16px;
+        }
+
+        .property-specs span strong {
+            color: var(--text-primary);
+        }
+
+        .property-notes {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #424245;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .property-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: #e8e8ed;
+        }
+
+        .status-badge.active { background: #e3f2fd; color: #0d47a1; }
+
+        .view-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .view-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🏠 House Dashboard</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Houses</h3>
+                <p id="total-count">3</p>
+            </div>
+            <div class="stat-card">
+                <h3>Favorites</h3>
+                <p id="fav-count">1</p>
+            </div>
+        </div>
+    </header>
+
+    <div class="controls">
+        <input type="text" class="search-input" placeholder="Search address or city...">
+        <button class="filter-btn active">All Listings</button>
+        <button class="filter-btn">⭐ Favorites</button>
+    </div>
+
+    <div class="property-grid" id="property-display">
+        <!-- Sample Card 1 -->
+        <div class="property-card">
+            <div class="property-image-placeholder">No Image Available</div>
+            <div class="property-content">
+                <div class="property-price">$549,000</div>
+                <div class="property-address">123 Main Street</div>
+                <div class="property-city">Frisco</div>
+                <div class="property-specs">
+                    <span><strong>4</strong> Bed</span>
+                    <span><strong>3</strong> Bath</span>
+                    <span><strong>2,550</strong> SqFt</span>
+                </div>
+                <div class="property-notes">Beautiful open floor plan with a massive backyard. Great neighborhood schools.</div>
+                <div class="property-actions">
+                    <span class="status-badge active">Active</span>
+                    <a href="#" class="view-link" target="_blank">Open Listing →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Card 2 -->
+        <div class="property-card">
+            <div class="property-image-placeholder">No Image Available</div>
+            <div class="property-content">
+                <div class="property-price">$620,000</div>
+                <div class="property-address">789 Oak Avenue</div>
+                <div class="property-city">Plano</div>
+                <div class="property-specs">
+                    <span><strong>5</strong> Bed</span>
+                    <span><strong>4</strong> Bath</span>
+                    <span><strong>3,100</strong> SqFt</span>
+                </div>
+                <div class="property-notes">Includes a dedicated media room and an updated kitchen. Needs a roof inspection.</div>
+                <div class="property-actions">
+                    <span class="status-badge">Pending</span>
+                    <a href="#" class="view-link" target="_blank">Open Listing →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // In Phase 5, we'll replace this sample logic with live Google Sheets code!
+    console.log("Dashboard UI Loaded successfully.");
+</script>
+
+</body>
+</html>
