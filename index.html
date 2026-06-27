@@ -44,7 +44,6 @@
             margin-bottom: 24px;
         }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -72,7 +71,6 @@
             font-weight: 600;
         }
 
-        /* Search & Filters Controls */
         .controls {
             display: flex;
             gap: 16px;
@@ -90,30 +88,12 @@
             box-shadow: var(--shadow);
             font-size: 1rem;
             outline: none;
-            transition: border-color 0.2s;
         }
 
         .search-input:focus {
             border-color: var(--accent);
         }
 
-        .filter-btn {
-            padding: 14px 24px;
-            border-radius: var(--border-radius);
-            border: none;
-            background: var(--card-bg);
-            box-shadow: var(--shadow);
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .filter-btn.active {
-            background: var(--text-primary);
-            color: #fff;
-        }
-
-        /* Property Cards Grid */
         .property-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -208,6 +188,7 @@
         }
 
         .status-badge.active { background: #e3f2fd; color: #0d47a1; }
+        .status-badge.pending { background: #fff3e0; color: #e65100; }
 
         .view-link {
             color: var(--accent);
@@ -218,6 +199,14 @@
 
         .view-link:hover {
             text-decoration: underline;
+        }
+
+        .loading-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
         }
     </style>
 </head>
@@ -230,67 +219,103 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <h3>Total Houses</h3>
-                <p id="total-count">3</p>
+                <p id="total-count">0</p>
             </div>
             <div class="stat-card">
                 <h3>Favorites</h3>
-                <p id="fav-count">1</p>
+                <p id="fav-count">0</p>
             </div>
         </div>
     </header>
 
-    <div class="controls">
-        <input type="text" class="search-input" placeholder="Search address or city...">
-        <button class="filter-btn active">All Listings</button>
-        <button class="filter-btn">⭐ Favorites</button>
-    </div>
-
     <div class="property-grid" id="property-display">
-        <!-- Sample Card 1 -->
-        <div class="property-card">
-            <div class="property-image-placeholder">No Image Available</div>
-            <div class="property-content">
-                <div class="property-price">$549,000</div>
-                <div class="property-address">123 Main Street</div>
-                <div class="property-city">Frisco</div>
-                <div class="property-specs">
-                    <span><strong>4</strong> Bed</span>
-                    <span><strong>3</strong> Bath</span>
-                    <span><strong>2,550</strong> SqFt</span>
-                </div>
-                <div class="property-notes">Beautiful open floor plan with a massive backyard. Great neighborhood schools.</div>
-                <div class="property-actions">
-                    <span class="status-badge active">Active</span>
-                    <a href="#" class="view-link" target="_blank">Open Listing →</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sample Card 2 -->
-        <div class="property-card">
-            <div class="property-image-placeholder">No Image Available</div>
-            <div class="property-content">
-                <div class="property-price">$620,000</div>
-                <div class="property-address">789 Oak Avenue</div>
-                <div class="property-city">Plano</div>
-                <div class="property-specs">
-                    <span><strong>5</strong> Bed</span>
-                    <span><strong>4</strong> Bath</span>
-                    <span><strong>3,100</strong> SqFt</span>
-                </div>
-                <div class="property-notes">Includes a dedicated media room and an updated kitchen. Needs a roof inspection.</div>
-                <div class="property-actions">
-                    <span class="status-badge">Pending</span>
-                    <a href="#" class="view-link" target="_blank">Open Listing →</a>
-                </div>
-            </div>
-        </div>
+        <div class="loading-message">Connecting to Google Sheets...</div>
     </div>
 </div>
 
 <script>
-    // In Phase 5, we'll replace this sample logic with live Google Sheets code!
-    console.log("Dashboard UI Loaded successfully.");
+    // ⚠️ PASTE YOUR COPIED GOOGLE SPREADSHEET ID BETWEEN THE QUOTES BELOW:
+    const SPREADSHEET_ID = '1yx3MSlI6g0k5-r8W4289OPr5MwA9NVXZw4RtH0TcDkM';
+    
+    // We target the 'Properties' sheet tab and pull the data as a clean CSV format
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Properties`;
+
+    async function fetchHouses() {
+        try {
+            const response = await fetch(url);
+            const text = await response.text();
+            
+            // Cleanly parse the CSV data into neat arrays rows
+            const rows = text.split('\n').map(row => {
+                // Split by commas, cleaning up double quotes Google adds
+                return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, '').trim());
+            });
+
+            // Extract headers from Row 1, and match up the data rows underneath
+            const headers = rows[0];
+            const dataRows = rows.slice(1);
+
+            const properties = dataRows.map(row => {
+                let prop = {};
+                headers.forEach((header, index) => {
+                    prop[header] = row[index] || '';
+                });
+                return prop;
+            });
+
+            displayProperties(properties);
+
+        } catch (error) {
+            console.error("Error fetching sheet data:", error);
+            document.getElementById('property-display').innerHTML = `<div class="loading-message">Error loading data. Double-check your Sheet ID and Share settings!</div>`;
+        }
+    }
+
+    function displayProperties(houses) {
+        const displayArea = document.getElementById('property-display');
+        
+        // Filter out completely blank lines
+        const validHouses = houses.filter(h => h.Address);
+
+        if (validHouses.length === 0) {
+            displayArea.innerHTML = `<div class="loading-message">No listings found. Add a few homes to your spreadsheet!</div>`;
+            return;
+        }
+
+        // Calculate and update dashboard stats panel
+        document.getElementById('total-count').innerText = validHouses.length;
+        const favs = validHouses.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes').length;
+        document.getElementById('fav-count').innerText = favs;
+
+        // Map data arrays out directly into clean HTML blocks
+        displayArea.innerHTML = validHouses.map(house => {
+            const statusClass = house.Status ? house.Status.toLowerCase() : 'active';
+            
+            return `
+                <div class="property-card">
+                    <div class="property-image-placeholder">🏠 ${house.City || 'Listing'}</div>
+                    <div class="property-content">
+                        <div class="property-price">${house.Price || 'Contact for Price'}</div>
+                        <div class="property-address">${house.Address}</div>
+                        <div class="property-city">${house.City || ''}</div>
+                        <div class="property-specs">
+                            <span><strong>${house.Beds || '-'}</strong> Bed</span>
+                            <span><strong>${house.Baths || '-'}</strong> Bath</span>
+                            <span><strong>${house.SqFt || '-'}</strong> SqFt</span>
+                        </div>
+                        <div class="property-notes">${house.Notes || 'No notes added yet.'}</div>
+                        <div class="property-actions">
+                            <span class="status-badge ${statusClass}">${house.Status || 'Active'}</span>
+                            <a href="${house.WebsiteURL || '#'}" class="view-link" target="_blank">Open Listing →</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Initialize the live fetch process
+    fetchHouses();
 </script>
 
 </body>
