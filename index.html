@@ -71,6 +71,59 @@
             font-weight: 600;
         }
 
+        /* Search & Filter Controls Panel */
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 280px;
+            padding: 14px 20px;
+            border-radius: var(--border-radius);
+            border: 1px solid transparent;
+            background: var(--card-bg);
+            box-shadow: var(--shadow);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            padding: 12px 20px;
+            border-radius: 20px;
+            border: none;
+            background: var(--card-bg);
+            box-shadow: var(--shadow);
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-primary);
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .filter-btn.active {
+            background: var(--text-primary);
+            color: #ffffff;
+        }
+
         .property-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -167,7 +220,7 @@
             color: #424245;
             margin-bottom: 20px;
             flex-grow: 1;
-            white-space: pre-line; /* Keeps line breaks clean visually */
+            white-space: pre-line;
         }
 
         .property-actions {
@@ -226,6 +279,15 @@
         </div>
     </header>
 
+    <!-- Search and filter interface block -->
+    <div class="controls">
+        <input type="text" id="search-box" class="search-input" placeholder="Search by address, city, or notes...">
+        <div class="filter-group">
+            <button id="filter-all" class="filter-btn active" onclick="setFilter('all')">All Listings</button>
+            <button id="filter-favs" class="filter-btn" onclick="setFilter('favs')">⭐ Favorites</button>
+        </div>
+    </div>
+
     <div class="property-grid" id="property-display">
         <div class="loading-message">Connecting to Google Sheets...</div>
     </div>
@@ -235,7 +297,10 @@
     const SPREADSHEET_ID = '1yx3MSlI6g0k5-r8W4289OPr5MwA9NVXZw4RtH0TcDkM';
     const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Properties`;
 
-    // Smart CSV Parser that handles newlines and commas inside double quotes safely
+    // Master list arrays to store raw sheets information globally
+    let allProperties = [];
+    let currentFilter = 'all'; // can be 'all' or 'favs'
+
     function parseCSV(text) {
         let p = '', c = '', r = [];
         let q = false;
@@ -246,8 +311,8 @@
             let next = text[i+1];
             
             if (c === '"') {
-                if (q && next === '"') { row[row.length - 1] += '"'; i++; } // Escaped quotes
-                else { q = !q; } // Toggle quote state
+                if (q && next === '"') { row[row.length - 1] += '"'; i++; }
+                else { q = !q; }
             } else if (c === ',' && !q) {
                 row.push('');
             } else if ((c === '\r' || c === '\n') && !q) {
@@ -273,15 +338,19 @@
             const headers = rows[0].map(h => h.trim());
             const dataRows = rows.slice(1);
 
-            const properties = dataRows.map(row => {
+            allProperties = dataRows.map(row => {
                 let prop = {};
                 headers.forEach((header, index) => {
                     prop[header] = row[index] !== undefined ? row[index].trim() : '';
                 });
                 return prop;
-            });
+            }).filter(h => h.Address && h.Address !== "");
 
-            displayProperties(properties);
+            // Update top-level dashboard metrics immediately on launch
+            updateStats(allProperties);
+            
+            // Initial presentation render
+            filterAndDisplay();
 
         } catch (error) {
             console.error("Error fetching sheet data:", error);
@@ -289,22 +358,49 @@
         }
     }
 
-    function displayProperties(houses) {
-        const displayArea = document.getElementById('property-display');
-        
-        // Filter out completely blank lines or headers without an address
-        const validHouses = houses.filter(h => h.Address && h.Address !== "");
+    function updateStats(houses) {
+        document.getElementById('total-count').innerText = houses.length;
+        const favs = houses.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes').length;
+        document.getElementById('fav-count').innerText = favs;
+    }
 
-        if (validHouses.length === 0) {
-            displayArea.innerHTML = `<div class="loading-message">No listings found. Add a few homes to your spreadsheet!</div>`;
+    // Handles toggle logic between the category chips
+    function setFilter(filterType) {
+        currentFilter = filterType;
+        
+        document.getElementById('filter-all').classList.toggle('active', filterType === 'all');
+        document.getElementById('filter-favs').classList.toggle('active', filterType === 'favs');
+        
+        filterAndDisplay();
+    }
+
+    // Master function that monitors both filters and search text input together
+    function filterAndDisplay() {
+        const searchInput = document.getElementById('search-box').value.toLowerCase();
+        const displayArea = document.getElementById('property-display');
+
+        // Step A: Apply categorical button filter
+        let filtered = allProperties;
+        if (currentFilter === 'favs') {
+            filtered = filtered.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes');
+        }
+
+        // Step B: Apply text search match filter
+        if (searchInput) {
+            filtered = filtered.filter(h => {
+                const addressMatch = h.Address ? h.Address.toLowerCase().includes(searchInput) : false;
+                const cityMatch = h.City ? h.City.toLowerCase().includes(searchInput) : false;
+                const notesMatch = h.Notes ? h.Notes.toLowerCase().includes(searchInput) : false;
+                return addressMatch || cityMatch || notesMatch;
+            });
+        }
+
+        if (filtered.length === 0) {
+            displayArea.innerHTML = `<div class="loading-message">No matching houses found. Try adjusting your filter terms!</div>`;
             return;
         }
 
-        document.getElementById('total-count').innerText = validHouses.length;
-        const favs = validHouses.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes').length;
-        document.getElementById('fav-count').innerText = favs;
-
-        displayArea.innerHTML = validHouses.map(house => {
+        displayArea.innerHTML = filtered.map(house => {
             const statusClass = house.Status ? house.Status.toLowerCase().replace(/\s+/g, '-') : 'active';
             
             const imageHTML = house.ImageURL && house.ImageURL.startsWith('http') 
@@ -336,6 +432,9 @@
             `;
         }).join('');
     }
+
+    // Monitor typing inputs inside the input box to instantly screen cards
+    document.getElementById('search-box').addEventListener('input', filterAndDisplay);
 
     fetchHouses();
 </script>
