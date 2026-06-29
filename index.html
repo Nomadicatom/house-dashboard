@@ -71,29 +71,6 @@
             font-weight: 600;
         }
 
-        .controls {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 32px;
-            flex-wrap: wrap;
-        }
-
-        .search-input {
-            flex: 1;
-            min-width: 280px;
-            padding: 14px 20px;
-            border-radius: var(--border-radius);
-            border: 1px solid transparent;
-            background: var(--card-bg);
-            box-shadow: var(--shadow);
-            font-size: 1rem;
-            outline: none;
-        }
-
-        .search-input:focus {
-            border-color: var(--accent);
-        }
-
         .property-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -115,14 +92,33 @@
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
         }
 
-        .property-image-placeholder {
-            height: 200px;
+        .property-image-wrapper {
+            height: 220px;
+            width: 100%;
+            overflow: hidden;
             background: #e8e8ed;
+            position: relative;
+        }
+
+        .property-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .property-card:hover .property-image {
+            transform: scale(1.03);
+        }
+
+        .property-image-placeholder {
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--text-secondary);
             font-weight: 500;
+            font-size: 2.5rem;
         }
 
         .property-content {
@@ -171,6 +167,7 @@
             color: #424245;
             margin-bottom: 20px;
             flex-grow: 1;
+            white-space: pre-line; /* Keeps line breaks clean visually */
         }
 
         .property-actions {
@@ -185,9 +182,10 @@
             font-size: 0.8rem;
             font-weight: 600;
             background: #e8e8ed;
+            text-transform: capitalize;
         }
 
-        .status-badge.active { background: #e3f2fd; color: #0d47a1; }
+        .status-badge.active, .status-badge.available { background: #e3f2fd; color: #0d47a1; }
         .status-badge.pending { background: #fff3e0; color: #e65100; }
 
         .view-link {
@@ -234,31 +232,51 @@
 </div>
 
 <script>
-    // ⚠️ PASTE YOUR COPIED GOOGLE SPREADSHEET ID BETWEEN THE QUOTES BELOW:
     const SPREADSHEET_ID = '1yx3MSlI6g0k5-r8W4289OPr5MwA9NVXZw4RtH0TcDkM';
-    
-    // We target the 'Properties' sheet tab and pull the data as a clean CSV format
     const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Properties`;
+
+    // Smart CSV Parser that handles newlines and commas inside double quotes safely
+    function parseCSV(text) {
+        let p = '', c = '', r = [];
+        let q = false;
+        let row = [''];
+        
+        for (let i = 0; i < text.length; i++) {
+            c = text[i];
+            let next = text[i+1];
+            
+            if (c === '"') {
+                if (q && next === '"') { row[row.length - 1] += '"'; i++; } // Escaped quotes
+                else { q = !q; } // Toggle quote state
+            } else if (c === ',' && !q) {
+                row.push('');
+            } else if ((c === '\r' || c === '\n') && !q) {
+                if (c === '\r' && next === '\n') { i++; }
+                r.push(row);
+                row = [''];
+            } else {
+                row[row.length - 1] += c;
+            }
+        }
+        if (row.length > 1 || row[0] !== '') { r.push(row); }
+        return r;
+    }
 
     async function fetchHouses() {
         try {
             const response = await fetch(url);
             const text = await response.text();
             
-            // Cleanly parse the CSV data into neat arrays rows
-            const rows = text.split('\n').map(row => {
-                // Split by commas, cleaning up double quotes Google adds
-                return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, '').trim());
-            });
+            const rows = parseCSV(text);
+            if (rows.length === 0) return;
 
-            // Extract headers from Row 1, and match up the data rows underneath
-            const headers = rows[0];
+            const headers = rows[0].map(h => h.trim());
             const dataRows = rows.slice(1);
 
             const properties = dataRows.map(row => {
                 let prop = {};
                 headers.forEach((header, index) => {
-                    prop[header] = row[index] || '';
+                    prop[header] = row[index] !== undefined ? row[index].trim() : '';
                 });
                 return prop;
             });
@@ -267,33 +285,38 @@
 
         } catch (error) {
             console.error("Error fetching sheet data:", error);
-            document.getElementById('property-display').innerHTML = `<div class="loading-message">Error loading data. Double-check your Sheet ID and Share settings!</div>`;
+            document.getElementById('property-display').innerHTML = `<div class="loading-message">Error loading data. Double-check your Google Sheet settings!</div>`;
         }
     }
 
     function displayProperties(houses) {
         const displayArea = document.getElementById('property-display');
         
-        // Filter out completely blank lines
-        const validHouses = houses.filter(h => h.Address);
+        // Filter out completely blank lines or headers without an address
+        const validHouses = houses.filter(h => h.Address && h.Address !== "");
 
         if (validHouses.length === 0) {
             displayArea.innerHTML = `<div class="loading-message">No listings found. Add a few homes to your spreadsheet!</div>`;
             return;
         }
 
-        // Calculate and update dashboard stats panel
         document.getElementById('total-count').innerText = validHouses.length;
         const favs = validHouses.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes').length;
         document.getElementById('fav-count').innerText = favs;
 
-        // Map data arrays out directly into clean HTML blocks
         displayArea.innerHTML = validHouses.map(house => {
-            const statusClass = house.Status ? house.Status.toLowerCase() : 'active';
+            const statusClass = house.Status ? house.Status.toLowerCase().replace(/\s+/g, '-') : 'active';
+            
+            const imageHTML = house.ImageURL && house.ImageURL.startsWith('http') 
+                ? `<img src="${house.ImageURL}" class="property-image" alt="${house.Address}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                   <div class="property-image-placeholder" style="display:none;">🏠</div>`
+                : `<div class="property-image-placeholder">🏠</div>`;
             
             return `
                 <div class="property-card">
-                    <div class="property-image-placeholder">🏠 ${house.City || 'Listing'}</div>
+                    <div class="property-image-wrapper">
+                        ${imageHTML}
+                    </div>
                     <div class="property-content">
                         <div class="property-price">${house.Price || 'Contact for Price'}</div>
                         <div class="property-address">${house.Address}</div>
@@ -314,7 +337,6 @@
         }).join('');
     }
 
-    // Initialize the live fetch process
     fetchHouses();
 </script>
 
