@@ -71,7 +71,6 @@
             font-weight: 600;
         }
 
-        /* Search & Filter Controls Panel */
         .controls {
             display: flex;
             gap: 16px;
@@ -279,7 +278,6 @@
         </div>
     </header>
 
-    <!-- Search and filter interface block -->
     <div class="controls">
         <input type="text" id="search-box" class="search-input" placeholder="Search by address, city, or notes...">
         <div class="filter-group">
@@ -297,9 +295,8 @@
     const SPREADSHEET_ID = '1yx3MSlI6g0k5-r8W4289OPr5MwA9NVXZw4RtH0TcDkM';
     const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Properties`;
 
-    // Master list arrays to store raw sheets information globally
     let allProperties = [];
-    let currentFilter = 'all'; // can be 'all' or 'favs'
+    let currentFilter = 'all';
 
     function parseCSV(text) {
         let p = '', c = '', r = [];
@@ -346,10 +343,7 @@
                 return prop;
             }).filter(h => h.Address && h.Address !== "");
 
-            // Update top-level dashboard metrics immediately on launch
             updateStats(allProperties);
-            
-            // Initial presentation render
             filterAndDisplay();
 
         } catch (error) {
@@ -360,11 +354,11 @@
 
     function updateStats(houses) {
         document.getElementById('total-count').innerText = houses.length;
-        const favs = houses.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes').length;
+        // Flexible favorite detection for total count header card
+        const favs = houses.filter(h => h.Favorite && h.Favorite.toLowerCase().includes('yes')).length;
         document.getElementById('fav-count').innerText = favs;
     }
 
-    // Handles toggle logic between the category chips
     function setFilter(filterType) {
         currentFilter = filterType;
         
@@ -374,18 +368,17 @@
         filterAndDisplay();
     }
 
-    // Master function that monitors both filters and search text input together
     function filterAndDisplay() {
         const searchInput = document.getElementById('search-box').value.toLowerCase();
         const displayArea = document.getElementById('property-display');
 
-        // Step A: Apply categorical button filter
         let filtered = allProperties;
+        
+        // Flexible favorite detection for live card filtering
         if (currentFilter === 'favs') {
-            filtered = filtered.filter(h => h.Favorite && h.Favorite.toLowerCase() === 'yes');
+            filtered = filtered.filter(h => h.Favorite && h.Favorite.toLowerCase().includes('yes'));
         }
 
-        // Step B: Apply text search match filter
         if (searchInput) {
             filtered = filtered.filter(h => {
                 const addressMatch = h.Address ? h.Address.toLowerCase().includes(searchInput) : false;
@@ -433,7 +426,6 @@
         }).join('');
     }
 
-    // Monitor typing inputs inside the input box to instantly screen cards
     document.getElementById('search-box').addEventListener('input', filterAndDisplay);
 
     fetchHouses();
