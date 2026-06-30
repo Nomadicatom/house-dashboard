@@ -272,7 +272,7 @@
                 <p id="total-count">0</p>
             </div>
             <div class="stat-card">
-                <h3>Favorites</h3>
+                <h3>Approved</h3>
                 <p id="fav-count">0</p>
             </div>
         </div>
@@ -282,7 +282,7 @@
         <input type="text" id="search-box" class="search-input" placeholder="Search by address, city, or notes...">
         <div class="filter-group">
             <button id="filter-all" class="filter-btn active" onclick="setFilter('all')">All Listings</button>
-            <button id="filter-favs" class="filter-btn" onclick="setFilter('favs')">⭐ Favorites</button>
+            <button id="filter-favs" class="filter-btn" onclick="setFilter('favs')">⭐ Approved</button>
         </div>
     </div>
 
@@ -354,8 +354,8 @@
 
     function updateStats(houses) {
         document.getElementById('total-count').innerText = houses.length;
-        // Flexible favorite detection for total count header card
-        const favs = houses.filter(h => h.Favorite && h.Favorite.toLowerCase().includes('yes')).length;
+        // Scans for the word "approved" anywhere in the cell text
+        const favs = houses.filter(h => h.Favorite && h.Favorite.toLowerCase().includes('approved')).length;
         document.getElementById('fav-count').innerText = favs;
     }
 
@@ -374,9 +374,9 @@
 
         let filtered = allProperties;
         
-        // Flexible favorite detection for live card filtering
+        // Filters cards down to only show items containing the word "approved"
         if (currentFilter === 'favs') {
-            filtered = filtered.filter(h => h.Favorite && h.Favorite.toLowerCase().includes('yes'));
+            filtered = filtered.filter(h => h.Favorite && h.Favorite.toLowerCase().includes('approved'));
         }
 
         if (searchInput) {
